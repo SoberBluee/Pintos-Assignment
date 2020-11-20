@@ -119,6 +119,8 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+   printf("%s: exit(%d)\n", cur->name, cur->exit_code);
+	
 }
 
 /* Sets up the CPU for running user code in the current
@@ -443,7 +445,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success) {
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       } else
         palloc_free_page (kpage);
     }
