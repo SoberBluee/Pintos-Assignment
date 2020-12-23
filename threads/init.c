@@ -281,6 +281,7 @@ parse_options (char **argv)
 static void
 run_task (char **argv)
 {
+  //argv = run "echo x" <- this is the second value in the array
   const char *task = argv[1];
   
   printf ("Executing '%s':\n", task);

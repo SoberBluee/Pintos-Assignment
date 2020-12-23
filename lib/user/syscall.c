@@ -64,6 +64,7 @@
 void
 halt (void) 
 {
+  printf("HELLO SYSTEM CALL HALT");
   syscall0 (SYS_HALT);
   NOT_REACHED ();
 }

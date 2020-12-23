@@ -1,10 +1,13 @@
 #include "userprog/process.h"
 #include <debug.h>
+#include <stdio.h> 
+#include <stdlib.h> 
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
@@ -17,9 +20,17 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "lib/string.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+
+/*
+First Parse the filename into seperate words.
+But before that we need to count the arguments in order to change the stack to fit the arguments
+when you have that argument value when you can have another function to make the stack bigger and the rp
+
+*/
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -29,16 +40,19 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
+  char *saveExtra;
+
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
+
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
-  /* Create a new thread to execute FILE_NAME. */
+  file_name = strtok_r((char*)file_name, " ", &saveExtra);
+  
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
 
   if (tid == TID_ERROR)
@@ -51,6 +65,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -61,8 +76,8 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  success = load (file_name, &if_.eip, &if_.esp);
-  
+  success = load(file_name, &if_.eip, &if_.esp);
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
@@ -156,20 +171,20 @@ typedef uint16_t Elf32_Half;
    This appears at the very beginning of an ELF binary. */
 struct Elf32_Ehdr
   {
-    unsigned char e_ident[16];
-    Elf32_Half    e_type;
-    Elf32_Half    e_machine;
-    Elf32_Word    e_version;
-    Elf32_Addr    e_entry;
-    Elf32_Off     e_phoff;
-    Elf32_Off     e_shoff;
-    Elf32_Word    e_flags;
-    Elf32_Half    e_ehsize;
-    Elf32_Half    e_phentsize;
-    Elf32_Half    e_phnum;
-    Elf32_Half    e_shentsize;
-    Elf32_Half    e_shnum;
-    Elf32_Half    e_shstrndx;
+    unsigned char e_ident[16];  /* Magic number and other info */
+    Elf32_Half e_type;          /* Object file type */
+    Elf32_Half e_machine;       /* Architecture */
+    Elf32_Word e_version;       /* Object file version */
+    Elf32_Addr e_entry;         /* Entry point virtual address */
+    Elf32_Off e_phoff;          /* Program header table file offset */
+    Elf32_Off e_shoff;          /* Section header table file offset */
+    Elf32_Word e_flags;         /* Processor-specific flags */
+    Elf32_Half e_ehsize;        /* ELF header size in bytes */
+    Elf32_Half e_phentsize;     /* Program header table entry size */
+    Elf32_Half e_phnum;         /* Program header table entry count */
+    Elf32_Half e_shentsize;     /* Section header table entry size */
+    Elf32_Half e_shnum;         /* Section header table entry count */
+    Elf32_Half e_shstrndx;      /* Section header string table index */
   };
 
 /* Program header.  See [ELF1] 2-2 to 2-4.
@@ -177,14 +192,14 @@ struct Elf32_Ehdr
    (see [ELF1] 1-6). */
 struct Elf32_Phdr
   {
-    Elf32_Word p_type;
-    Elf32_Off  p_offset;
-    Elf32_Addr p_vaddr;
-    Elf32_Addr p_paddr;
-    Elf32_Word p_filesz;
-    Elf32_Word p_memsz;
-    Elf32_Word p_flags;
-    Elf32_Word p_align;
+     uint32_t   p_type;
+     Elf32_Off  p_offset;
+     Elf32_Addr p_vaddr;
+     Elf32_Addr p_paddr;
+     uint32_t   p_filesz;
+     uint32_t   p_memsz;
+     uint32_t   p_flags;
+     uint32_t   p_align;
   };
 
 /* Values for p_type.  See [ELF1] 2-3. */
@@ -202,7 +217,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, char **argv, int argc);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -212,6 +227,9 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    Stores the executable's entry point into *EIP
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
+
+
+  
 bool
 load (const char *file_name, void (**eip) (void), void **esp) 
 {
@@ -222,19 +240,45 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  /*Creating the argv array to hold all arguments that are being passes*/
+  char *argv[255];
+  /*Keep a count of the number of arguments that are being put into the array*/
+  int argc = 1; 
+  /*Save all extra arguments in this to then append into argv*/
+  char *saveExtra;
+  /*Getting the filename so that we can open the file*/
+  argv[0] = strtok_r((char*)file_name, " ", &saveExtra);
+
+  char *token;
+
+  
+  /*First setting the filename to the first token. The looping until the token is empty. 
+    If first parameter in the strtok_r == NULL then it will just set the extraArguments as the token
+  */
+  for(token = (char*)file_name; token != NULL; token = strtok_r(NULL, " ", &saveExtra)){
+   argv[argc] = token;
+   argc++;
+  }
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
 
+  if (file_name == NULL)
+    return TID_ERROR;
+
+  
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (argv[0]);
+
 
   if (file == NULL) 
     {
-	printf ("load: %s: open failed\n", file_name);
-      goto done; 
+
+	      printf ("load: %s: open failed\n", file);
+        goto done; 
     }
 
   /* Read and verify executable header. */
@@ -309,8 +353,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+  
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack(esp, argv, argc))
     goto done;
 
   /* Start address. */
@@ -318,11 +363,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   success = true;
 
- done:
+done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
 }
+
+
 
 /* load() helpers. */
 
@@ -391,6 +438,7 @@ static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
               uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
 {
+
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
@@ -432,23 +480,67 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+
+//struct for processes
+  /* arg coutner, args */
+
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, char **argv, int argc)
 {
   uint8_t *kpage;
   bool success = false;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success) {
-        *esp = PHYS_BASE - 12;
-      } else
-        palloc_free_page (kpage);
+
+  if (kpage != NULL){
+    success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+    if (success){
+      *esp = PHYS_BASE;
+
+      //This array holds reference to differences arguments in the stack
+      uint32_t *arr[argc]; 
+      for (int i = argc-1; i > 0; i--){
+        *esp -= (strlen(argv[i])+1)*sizeof(char);
+        arr[i] = (uint32_t *)*esp;
+        memcpy(*esp,argv[i],strlen(argv[i])+1);
+      } 
+      
+      *esp -= 4;
+      (*(int *)(*esp)) = 0;//sentinel
+
+      for (int i = argc-1; i > 0; i--){
+        *esp -= 4;//32bit
+        (*(uint32_t **)(*esp)) = arr[i];
+      }
+
+      *esp -= 4;
+      (*(uintptr_t **)(*esp)) = (*esp+4);
+      *esp -= 4;
+      *(int *)(*esp) = argc;
+      *esp -= 4;
+      (*(int *)(*esp))=0;
+
     }
+    else{
+      palloc_free_page (kpage);
+    }
+  }
+
+  /*
+     First need to extract the firstname of the filename and the extraArguments 
+
+     Once we have stored those arguments in a temporary char array. so that char argvTemp[1] = 'x'
+     Then we push those argument to the stack.
+     Then we push the address of each argument so argvTemp[1] = 0xbffffffc
+     Then we push a null pointer so something like esp[argc] = 0
+     Then we need to word align the stack so that the arguments are aligned ?
+     Then push the address of argv[0] ?
+     THen push the fake return address ? 
+  */
+  
+  //hex_dump(PHYS_BASE, *esp, PHYS_BASE-(*esp), true); 
   return success;
 }
 
