@@ -101,6 +101,15 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    /*
+    Adding the file descriptor to the currently running tread
+    This is to make sure we have the file descriptor value through 
+    out the duration of the currently running process
+    */
+    int fd;
+    //Stroring all the file names that are created during runtime
+    struct list file_list;
   };
 
 /* If false (default), use round-robin scheduler.
