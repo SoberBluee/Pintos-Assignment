@@ -140,36 +140,3 @@ struct file* get_file (int fd)
   return NULL; // nothing found
 }
 
-// int set_file(struct file *fn){
-// 	struct file_process *file_to_process;
-// 	file_to_process->file = fn;
-// 	file_to_process->fd = thread_current()->fd;
-// 	thread_current()->fd++;
-// 	return file_to_process->fd;
-// }
-
-// struct file* get_file(int fd){
-
-// 	//Get the currently running thread
-// 	struct thread *t = thread_current();
-
-// 	//Define struct for next element in struct
-// 	struct list_elem *next_element;
-
-// 	//Get the list and store elements in element
-// 	struct list_elem *i = list_begin(&t->files);
-
-// 	//loop through the list until end is reached
-// 	for(; i != list_end(&t->files); i = next_element){
-// 		//Gets the next element in the list
-// 		next_element = list_next(i);
-// 		//
-// 		struct file *file_to_process = list_entry(i, struct file_process, elem);
-// 		int file_d = file_to_process->fd;
-// 		if(fd == file_d){
-// 			return file_to_process->file;
-
-// 		}
-// 	}
-// 	return NULL;
-// }
