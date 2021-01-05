@@ -9,7 +9,8 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 
-
+#define INPUT 0
+#define OUTPUT 1
 
 static void syscall_handler (struct intr_frame *);
 void sys_halt(void);
@@ -17,19 +18,18 @@ pid_t exec(const char *cmd_line);
 int wait(pid_t pid);
 int open(const char *file);
 int write(int fd, const void *buffer, unsigned size);
-
+void close(int fd);
+void close_file(int fd);
 
 int set_file(struct file *fn);
 struct file* get_file (int fd);
 
-#define INPUT 0
-#define OUTPUT 1
-
-/*IMPORTANT
+/*  IMPORTANT
 	When performing a syscall
 	when a function returns a value
 	you need to modify the register on the stack called uint32_t eax;
-	you need to push values ? onto the stack*/
+	you need to push values ? onto the stack
+*/
 
 void
 syscall_init (void) 
@@ -38,8 +38,6 @@ syscall_init (void)
 }
 
 //Implement a get arguments from stack function
-
-
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {	
@@ -68,7 +66,7 @@ void halt(void){
 }
 
 /*open file*/
-//CREATED 18 DEC
+//CREATED 18 DEC 2020
 int 
 open(const char *file){
 	//Goes at fetches the file
@@ -83,7 +81,7 @@ open(const char *file){
 	return -1;
 }
 
-//CREATED 20 DEC
+//CREATED 20 DEC 2020
 int write(int fd, const void *buffer, unsigned size){
 
 	//Check if there is anything in the bugger first
@@ -102,6 +100,10 @@ int write(int fd, const void *buffer, unsigned size){
 	//call filesys_write passing in the buffer,size and filename ? 
 	int written_bytes = file_write(file_to_process, buffer, size);
 	return written_bytes;
+}
+//CREATED  05/01/2021
+void close(int fd){
+	close_file(fd);
 }
 
 //CREATED 1st JAN
@@ -138,5 +140,21 @@ struct file* get_file (int fd)
     }
   }
   return NULL; // nothing found
+}
+
+void close_file(int fd){
+	struct thread *t = thread_current();
+	struct list_elem* next;
+	struct list_elem* e = list_begin(&t->file_list);
+
+	for (; e != list_end(&t->file_list); e = next)
+	{
+		next = list_next(e);
+		struct process_file *file_to_process = list_entry(e, struct process_file, elem);
+		if (fd == file_to_process->fd)
+		{
+			file_close(file_to_process->file);
+		}
+	}
 }
 
