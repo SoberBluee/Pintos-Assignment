@@ -26,7 +26,6 @@ struct file* get_file (int fd);
 #define INPUT 0
 #define OUTPUT 1
 
-
 void
 syscall_init (void) 
 {
@@ -39,66 +38,65 @@ syscall_handler (struct intr_frame *f UNUSED)
   uint32_t *p=f->esp; 
  
   switch(*p) {
-  	case SYS_HALT:
+  	case SYS_HALT:{
   		halt();
-  		break;
-  	case SYS_OPEN:
-			char *filename = f->esp + 1;
-			printf("FILE: %c", *filename);
-			f->eax = open(filename);
-			break;
-	case SYS_WRITE:
-			int *filename = f->esp + 1;
-			char *buffer = f->esp + 2;
-			unsigned *size = f->esp + 3;
-			f->eax = write((int)filename, (const void *)buffer,(unsigned)size);
-			break;
-  	case SYS_EXIT: // completed 21/12/2020
-  		printf(" "); // prvents error
+  		}break;
+		
+  	case SYS_OPEN:{
+  		char *filename = f->esp + 1;
+		printf("FILE: %c", *filename);
+		f->eax = open(filename);
+  		}break;
+			
+	case SYS_WRITE:{
+		int *filename = f->esp + 1;
+		char *buffer = f->esp + 2;
+		unsigned *size = f->esp + 3;
+		f->eax = write((int)filename, (const void *)buffer,(unsigned)size);
+		}break;
+
+  	case SYS_EXIT:{
   		int status = *((int*)f->esp + 1);// pulling status out of stack
   		exit(status);
-  		break;
+  		}break;
 
-  	case SYS_CREATE:// completed 21/12/2020
-  		printf(" "); // prvents error
+  	case SYS_CREATE:{
   		const char * file = ((const char*)f->esp + 1); // pull file name out of stack 
   		unsigned initial_size = *((unsigned*)f->esp + 2);// pull file size out of stack
  		f->eax = create(file,initial_size);
-  		break;
+  		}break;
 
-  	case SYS_FILESIZE: // need to create file descripter 
-		printf(" ");
+  	case SYS_FILESIZE:{
 		int fdFileSize = *((int*)f->esp + 1);  		
   		f->eax = fileSize(fdFileSize);
-  		break;
+  		}break;
   		
-  	case SYS_SEEK:
-  		printf(" ");
+  	case SYS_SEEK:{
   	    int fdSeek = *((int*)f->esp + 1);
   		unsigned position = *((unsigned*)f->esp + 2);
   		seek(fdSeek,position);
-  		break;
+  		}break;
 
 	default:
 		printf("SYS_CALL (%d) not implemented\n", *p);
+		break;
 	thread_exit();
 	}
 }
 
 /*21/12/2020 - Ethan Donovan*/
 void halt(void){
-	printf("HALT WAS CALLED");
 	shutdown_power_off();
 }
 
-//created By Benjamin ELl-Jones 
+// 21/12/2020 - Benjamin ELl-Jones 
 void exit(int status){ /*Exit file*/
 	struct thread* current = thread_current();// getting the current thread
   	current->exit_code = status; // Set the status of the thread to the exit code
   	thread_exit();// terminate current thread
 }
 
-//created By Benjamin ELl-Jones
+//21/12/2020 - By Benjamin ELl-Jones
 bool create(const char * file,unsigned initial_size){/*Create file*/
 	bool isCreated = false;
 	
