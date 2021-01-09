@@ -18,7 +18,6 @@ void debug_panic (const char *file, int line, const char *function,
 void debug_backtrace (void);
 void debug_backtrace_all (void);
 
-
 #endif
 
 

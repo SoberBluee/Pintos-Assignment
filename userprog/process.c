@@ -134,7 +134,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-   printf("%s: exit(%d)\n", cur->name, cur->exit_code);
+   printf("%s: exit(%d)\n", cur->name, cur->exitCode);
 	
 }
 
@@ -503,7 +503,7 @@ setup_stack (void **esp, char **argv, int argc)
       uint32_t *arr[argc]; 
       for (int i = argc-1; i > 0; i--){
         *esp -= (strlen(argv[i])+1)*sizeof(char);
-        arr[i] = (uint32_t *)*esp;
+        arr[i] = (uint32_t *)*esp; 
         memcpy(*esp,argv[i],strlen(argv[i])+1);
       } 
       

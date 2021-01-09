@@ -92,7 +92,7 @@ void halt(void){
 // 21/12/2020 - Benjamin ELl-Jones 
 void exit(int status){ /*Exit file*/
 	struct thread* current = thread_current();// getting the current thread
-  	current->exit_code = status; // Set the status of the thread to the exit code
+  	current->exitCode = status; // Set the status of the thread to the exit code
   	thread_exit();// terminate current thread
 }
 
@@ -224,5 +224,3 @@ void close_file(int fd){
 		}
 	}
 }
-
-

@@ -103,7 +103,6 @@ thread_init (void)
 
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -472,8 +471,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  t->fd = 0;
-  list_init(&t->file_list);
 
   //t->is_kernel = is_kernel;
 

@@ -1,5 +1,6 @@
 #include <syscall.h>
 #include "../syscall-nr.h"
+#include "devices/shutdown.h"
 
 /* Invokes syscall NUMBER, passing no arguments, and returns the
    return value as an `int'. */
@@ -64,9 +65,9 @@
 void
 halt (void) 
 {
-  printf("HELLO SYSTEM CALL HALT");
-  syscall0 (SYS_HALT);
-  NOT_REACHED ();
+    syscall0 (SYS_HALT);
+    NOT_REACHED ();
+
 }
 
 void

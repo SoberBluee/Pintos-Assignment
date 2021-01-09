@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <syscall.h>
 
-
 int
 main (void)
 {
-    open(file);
+    printf("Hello, World\n");
     
     return EXIT_SUCCESS;
 }
