@@ -9,9 +9,6 @@
 #include "threads/thread.h"
 #include "devices/shutdown.h"
 
-#define INPUT 0
-#define OUTPUT 1
-
 static void syscall_handler (struct intr_frame *);
 void halt(void);
 pid_t exec(const char *cmd_line);
@@ -26,15 +23,6 @@ void seek(int fd, unsigned position);
 int set_file(struct file *fn);
 struct file* get_file (int fd);
 
-
-/*  
-	IMPORTANT
-	When performing a syscall
-	when a function returns a value
-	you need to modify the register on the stack called uint32_t eax;
-	you need to push values ? onto the stack
-*/
-
 #define INPUT 0
 #define OUTPUT 1
 
@@ -45,31 +33,26 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-//Implement a get arguments from stack function
-/* Writes BYTE to user address UDST.
-   UDST must be below PHYS_BASE.
-   Returns true if successful, false if a segfault occurred. */
-
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
   uint32_t *p=f->esp; 
  
   switch(*p) {
-  	case SYS_HALT: // completed 21/12/2020
-  		halt();// calls power off function from devices/shutdown.h
+  	case SYS_HALT:
+  		halt();
   		break;
-  	case SYS_OPEN:{
+  	case SYS_OPEN:
 			char *filename = f->esp + 1;
 			printf("FILE: %c", *filename);
 			f->eax = open(filename);
-			}
-	case SYS_WRITE:{
+			break;
+	case SYS_WRITE:
 			int *filename = f->esp + 1;
 			char *buffer = f->esp + 2;
 			unsigned *size = f->esp + 3;
 			f->eax = write((int)filename, (const void *)buffer,(unsigned)size);
-		}
+			break;
   	case SYS_EXIT: // completed 21/12/2020
   		printf(" "); // prvents error
   		int status = *((int*)f->esp + 1);// pulling status out of stack
@@ -97,23 +80,43 @@ syscall_handler (struct intr_frame *f UNUSED)
   		break;
 
 	default:
-	printf("SYS_CALL (%d) not implemented\n", *p);
+		printf("SYS_CALL (%d) not implemented\n", *p);
 	thread_exit();
-	} // end of switch
+	}
 }
 
+/*21/12/2020 - Ethan Donovan*/
 void halt(void){
 	printf("HALT WAS CALLED");
 	shutdown_power_off();
 }
 
-/*open file*/
-//CREATED 18 DEC 2020
+//created By Benjamin ELl-Jones 
+void exit(int status){ /*Exit file*/
+	struct thread* current = thread_current();// getting the current thread
+  	current->exit_code = status; // Set the status of the thread to the exit code
+  	thread_exit();// terminate current thread
+}
 
-/*This will wait for the child process (exec which will handle)*/
+//created By Benjamin ELl-Jones
+bool create(const char * file,unsigned initial_size){/*Create file*/
+	bool isCreated = false;
+	
+	if (file == NULL){
+		printf("Error No fileName");
+		return false;
+	}else{
+		isCreated = filesys_create(file, initial_size);
+		return isCreated;
+	}
+	return isCreated;
+ }
 
-int open(const char *file){
+//remove
 
+
+//18/12/2020 - Ethan Donovan
+int open(const char *file){/*open file*/
 	//Goes at fetches the file
 	struct file *file_open = filesys_open(file); // This was sysCall_open
 	//File cound not be found
@@ -121,13 +124,25 @@ int open(const char *file){
 		return -1;
 	}else{
 		//Returns the file
-		return (int)file_open;
+		int fd = set_file(file_open);
+		return fd;	
 	}
 	return -1;
 }
 
-//CREATED 20 DEC 2020 
-int write(int fd, const void *buffer, unsigned size){
+//created By Benjamin ELl-Jones
+off_t fileSize(int fd){/*File size*/
+	struct process_file *fileCur = get_file(fd); // gets the file
+	off_t fileLength = 0; //stores file length 
+	if (fileCur != NULL){ // if file is not null
+		fileLength = file_length(fileCur->file);// gets length of file
+	}
+	return fileLength;
+}
+
+
+// 20/12/2020 - Ethan Donovan
+int write(int fd, const void *buffer, unsigned size){/*Write File*/
 
 	//Check if there is anything in the bugger first
 	if(size <= 0){
@@ -147,49 +162,21 @@ int write(int fd, const void *buffer, unsigned size){
 	return written_bytes;
 }
 
-//CREATED  05/01/2021
-void close(int fd){
-	close_file(fd);
-}
-
-void exit(int status){ //created By Benjamin ELl-Jones 
-	struct thread* current = thread_current();// getting the current thread
-  	current->exit_code = status; // Set the status of the thread to the exit code
-  	thread_exit();// terminate current thread
-}
-
-bool create(const char * file,unsigned initial_size){//created By Benjamin ELl-Jones
-	bool isCreated = false;
-	
-	if (file == NULL){
-		printf("Error No fileName");
-		return false;
-	}else{
-		isCreated = filesys_create(file, initial_size);
-		return isCreated;
-	}
-	return isCreated;
- }
-
-
-off_t fileSize(int fd){//created By Benjamin ELl-Jones
-	struct process_file *fileCur = get_file(fd); // gets the file
-	off_t fileLength = 0; //stores file length 
-	if (fileCur != NULL){ // if file is not null
-		fileLength = file_length(fileCur->file);// gets length of file
-	}
-	return fileLength;
-}
-
-void seek(int fd, unsigned position){//created By Benjamin ELl-Jones
+//created By Benjamin ELl-Jones
+void seek(int fd, unsigned position){
 	struct process_file *fileCur = get_file(fd);// gets the file using fd
 	if (fileCur != NULL){ // if file is not null
 		file_seek (fileCur->file, (off_t)position);
 	} 
 }
 
-//CREATED 1st JAN
-/* add file to file list and return file descriptor of added file*/
+/*05/01/2021 - Ethan Donovan*/
+void close(int fd){/*Close file*/
+	close_file(fd);
+}
+
+/* 01/01/2021 - Ethan Donovan */
+/*add file to file list and return file descriptor of added file*/
 int set_file(struct file *fn)
 {
   struct process_file *file_to_process = malloc(sizeof(struct process_file)); //Will define the process_file struct and allocating it memory
@@ -202,12 +189,10 @@ int set_file(struct file *fn)
   thread_current()->fd++;//Sets the file descriptor
   list_push_back(&thread_current()->file_list, &file_to_process->elem);//Copying the file_list from the thread to the new file structure
   return file_to_process->fd;
-  
 }
 
-//CREATED JAN 1st
-/* get file that matches file descriptor */
-struct file* get_file (int fd){
+/* 01/01/2021 - Ethan Donovan */
+struct file* get_file (int fd){/* get file that matches file descriptor */
 
   struct thread *t = thread_current(); //Gets the currently running thread
   struct list_elem* next;//Will hold the next file element in a list_elem
@@ -219,14 +204,13 @@ struct file* get_file (int fd){
     struct process_file *file_to_process = list_entry(e, struct process_file, elem);//Goes and fetches that file name from the process_file structure
     if (fd == file_to_process->fd)
     {
-
       return file_to_process->file;//Return the file
     }
   }
   return NULL; // nothing found
 }
 
-
+/* 04/01/2021 - Ethan Donovan */
 void close_file(int fd){
 	struct thread *t = thread_current();//Gets the currently running thread
 	struct list_elem* next; //Will hold the next file element in a list_elem
