@@ -23,13 +23,12 @@ void close_file(int fd);
 void exit(int status);
 off_t fileSize(int fd);
 void seek(int fd, unsigned position);
-
-
 int set_file(struct file *fn);
 struct file* get_file (int fd);
 
 
-/*  IMPORTANT
+/*  
+	IMPORTANT
 	When performing a syscall
 	when a function returns a value
 	you need to modify the register on the stack called uint32_t eax;
@@ -45,7 +44,6 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
-
 
 //Implement a get arguments from stack function
 /* Writes BYTE to user address UDST.
@@ -66,7 +64,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 			printf("FILE: %c", *filename);
 			f->eax = open(filename);
 			}
-			break;
 	case SYS_WRITE:{
 			int *filename = f->esp + 1;
 			char *buffer = f->esp + 2;
@@ -175,23 +172,6 @@ bool create(const char * file,unsigned initial_size){//created By Benjamin ELl-J
  }
 
 
-//CREATED 1st JAN
-/* add file to file list and return file descriptor of added file*/
-int set_file(struct file *fn)
-{
-  struct process_file *file_to_process = malloc(sizeof(struct process_file));
-  if (file_to_process == NULL)
-  {
-    return -1;
-  }
-  file_to_process->file = fn;
-  file_to_process->fd = thread_current()->fd;
-  thread_current()->fd++;
-  list_push_back(&thread_current()->file_list, &file_to_process->elem);
-  return file_to_process->fd;
-  
-}
-
 off_t fileSize(int fd){//created By Benjamin ELl-Jones
 	struct process_file *fileCur = get_file(fd); // gets the file
 	off_t fileLength = 0; //stores file length 
@@ -208,21 +188,39 @@ void seek(int fd, unsigned position){//created By Benjamin ELl-Jones
 	} 
 }
 
+//CREATED 1st JAN
+/* add file to file list and return file descriptor of added file*/
+int set_file(struct file *fn)
+{
+  struct process_file *file_to_process = malloc(sizeof(struct process_file)); //Will define the process_file struct and allocating it memory
+  if (file_to_process == NULL)//file checking
+  {
+    return -1;
+  }
+  file_to_process->file = fn;//setting the filename
+  file_to_process->fd = thread_current()->fd;//Defining the file descriptor
+  thread_current()->fd++;//Sets the file descriptor
+  list_push_back(&thread_current()->file_list, &file_to_process->elem);//Copying the file_list from the thread to the new file structure
+  return file_to_process->fd;
+  
+}
+
 //CREATED JAN 1st
 /* get file that matches file descriptor */
-struct file* get_file (int fd)
-{
-  struct thread *t = thread_current();
-  struct list_elem* next;
-  struct list_elem* e = list_begin(&t->file_list);
-  
-  for (; e != list_end(&t->file_list); e = next)
-  {
-    next = list_next(e);
-    struct process_file *file_to_process = list_entry(e, struct process_file, elem);
+struct file* get_file (int fd){
+
+  struct thread *t = thread_current(); //Gets the currently running thread
+  struct list_elem* next;//Will hold the next file element in a list_elem
+  struct list_elem* e = list_begin(&t->file_list); //Gets the file names from the file_list and starts at the begining of the list
+
+  for (; e != list_end(&t->file_list); e = next)  //Loop through file_list and gets each element in the list
+  {	
+    next = list_next(e);//sets the next element
+    struct process_file *file_to_process = list_entry(e, struct process_file, elem);//Goes and fetches that file name from the process_file structure
     if (fd == file_to_process->fd)
     {
-      return file_to_process->file;
+
+      return file_to_process->file;//Return the file
     }
   }
   return NULL; // nothing found
@@ -230,17 +228,17 @@ struct file* get_file (int fd)
 
 
 void close_file(int fd){
-	struct thread *t = thread_current();
-	struct list_elem* next;
-	struct list_elem* e = list_begin(&t->file_list);
+	struct thread *t = thread_current();//Gets the currently running thread
+	struct list_elem* next; //Will hold the next file element in a list_elem
+	struct list_elem* e = list_begin(&t->file_list); //Gets the file names from the file_list and starts at the begining of the list
 
-	for (; e != list_end(&t->file_list); e = next)
+	for (; e != list_end(&t->file_list); e = next)//Loop through file_list and gets each element in the list
 	{
-		next = list_next(e);
-		struct process_file *file_to_process = list_entry(e, struct process_file, elem);
+		next = list_next(e);//sets the next element
+		struct process_file *file_to_process = list_entry(e, struct process_file, elem);//Goes and fetches that file name from the process_file structure
 		if (fd == file_to_process->fd)
 		{
-			file_close(file_to_process->file);
+			file_close(file_to_process->file);//Will close that file
 		}
 	}
 }
